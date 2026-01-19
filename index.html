@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co na obiad?</title>
+<link rel="manifest" href="manifest.json"> 
+<meta name="theme-color" content="#000000"> 
+<meta name="background-color" content="#ffffff">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; font-family: "Montserrat", sans-serif; }
+body { margin:0; min-height:100dvh; display:flex; justify-content:center; padding:24px; position:relative; overflow-x:hidden;}
+body::before { content:""; position:fixed; inset:0; background:url("tło.png") center/cover no-repeat; z-index:-1;}
+.app { width:100%; max-width:480px; }
+.logo { display:block; width:260px; max-width:90%; margin:0 auto 16px; cursor:pointer; }
+.panel { padding:24px; border-radius:28px; background:linear-gradient(to bottom,#991b1b,#7f1d1d); border:4px solid #f59e0b; box-shadow:0 15px 40px rgba(0,0,0,.6); }
+.hidden { display:none; }
+.btn { width:100%; padding:16px; border-radius:18px; border:4px solid #fde047; background:linear-gradient(to bottom,#fb923c,#ea580c); color:#fde047; font-size:18px; font-weight:800; cursor:pointer; box-shadow:0 6px 0 #b45309; margin-bottom:16px; }
+.btn.secondary { background:#7f1d1d; border:2px solid #f59e0b; box-shadow:none; font-size:16px; }
+.btn.add { background:linear-gradient(to bottom,#22c55e,#15803d); border:4px solid #bbf7d0; color:#ecfdf5; box-shadow:0 6px 0 #14532d; }
+.btn.danger { background:linear-gradient(to bottom,#ef4444,#991b1b); border:4px solid #fecaca; color:#fff; box-shadow:0 6px 0 #7f1d1d; }
+.btn.small { padding:10px 14px; font-size:14px; border-radius:14px; margin-bottom:8px; }
+.meals { display:grid; grid-template-columns:1fr; gap:24px; }
+.dish-title { font-size:18px; font-weight:800; letter-spacing:.4px; color:#fde047; text-transform:uppercase; padding:10px 12px; border-radius:14px; background:linear-gradient(to bottom,#92400e,#7c2d12); border:2px solid #f59e0b; box-shadow:inset 0 2px 4px rgba(255,255,255,.15), inset 0 -2px 4px rgba(0,0,0,.35), 0 4px 10px rgba(0,0,0,.45); text-align:center; cursor:pointer;}
+.dish-title.small { font-size:16px; padding:8px 10px; margin-bottom:8px;}
+.expand { overflow:hidden; max-height:0; opacity:0; transition:max-height .35s ease, opacity .25s ease, padding-top .25s ease; }
+.expand.open { max-height:800px; opacity:1; padding-top:8px; }
+.parchment { margin-top:8px; padding:14px; background:linear-gradient(to bottom,#fef3c7,#fde68a), repeating-linear-gradient(45deg, rgba(0,0,0,.025), rgba(0,0,0,.025) 2px, transparent 2px, transparent 4px); border:2px solid #92400e; border-radius:16px; }
+.parchment ul { list-style:none; padding:0; margin:0; }
+.parchment li { background:rgba(255,255,255,.45); border:1px solid #92400e; border-radius:10px; padding:8px 10px; margin-bottom:6px; color:#78350f; font-weight:600; display:flex; gap:8px; align-items:center; cursor:pointer; }
+.parchment li.checked { opacity:.55; text-decoration:line-through; }
+.input { width:100%; padding:12px; margin-top:8px; border-radius:14px; border:2px solid #f59e0b; background:#7f1d1d; color:#fef9c3; text-align:center; }
+.edit-row { display:flex; gap:6px; margin-bottom:6px; }
+.remove-x { background:transparent; border:none; font-size:18px; cursor:pointer; color:#92400e; }
+.edit-actions { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <img src="logo.png" class="logo" id="logo">
+  <div class="panel" id="mainView">
+    <button class="btn" onclick="drawMeals()">🎲 WYLOSUJ 2 DANIA</button>
+    <div class="meals" id="meals"></div>
+  </div>
+  <div class="panel hidden" id="editView">
+    <div id="editList"></div>
+    <button class="btn add" onclick="addDish()">➕ Dodaj danie</button>
+    <button class="btn secondary" onclick="toggleEdit()">⬅ Wróć</button>
+  </div>
+</div>
+
+<script>
+const DEFAULT_DISHES = [
+  { name: "Spaghetti", ingredients: ["makaron","sos","mięso"] },
+  { name: "Pierogi", ingredients: ["pierogi","cebula"] },
+  { name: "Kurczak z ziemniakami", ingredients: ["kurczak","ziemniaki"] }
+];
+
+let dishes = JSON.parse(localStorage.getItem("dishes")) || DEFAULT_DISHES;
+let shoppingLists = JSON.parse(localStorage.getItem("shoppingLists")) || {};
+let selected = [];
+
+const mainView = document.getElementById("mainView");
+const editView = document.getElementById("editView");
+const mealsBox = document.getElementById("meals");
+const editList = document.getElementById("editList");
+
+document.getElementById("logo").onclick = toggleEdit;
+
+function toggleEdit() {
+  mainView.classList.toggle("hidden");
+  editView.classList.toggle("hidden");
+  renderEdit();
+}
+
+function drawMeals() {
+  selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0,2)
+    .map(d => {
+      if (!shoppingLists[d.name]) shoppingLists[d.name] = d.ingredients.map(i=>({name:i,checked:false}));
+      return { name:d.name, open:true };
+    });
+  save();
+  renderMeals();
+}
+
+function renderMeals() {
+  mealsBox.innerHTML = "";
+  selected.forEach(dish=>{
+    const wrap=document.createElement("div");
+    const title=document.createElement("div");
+    title.className="dish-title";
+    title.textContent=dish.name;
+    title.onclick=()=>{ dish.open=!dish.open; renderMeals(); };
+    const parchment=document.createElement("div");
+    parchment.className="parchment expand"+(dish.open?" open":"");
+    const ul=document.createElement("ul");
+    shoppingLists[dish.name].forEach(item=>{
+      const li=document.createElement("li");
+      li.className=item.checked?"checked":"";
+      li.textContent=item.name;
+      li.onclick=()=>{ item.checked=!item.checked; save(); renderMeals(); };
+      ul.appendChild(li);
+    });
+    parchment.appendChild(ul);
+    wrap.append(title,parchment);
+    mealsBox.appendChild(wrap);
+  });
+}
+
+function renderEdit(focusDish) {
+  editList.innerHTML = "";
+
+  dishes.forEach(d => {
+    if(d !== focusDish) d.open = false;
+    if(!shoppingLists[d.name]) shoppingLists[d.name] = [];
+
+    const card = document.createElement("div");
+    card.style.marginBottom = "12px";
+
+    /* ===== NAGŁÓWEK / EDYCJA NAZWY ===== */
+    if(d.editName){
+      const nameInput = document.createElement("input");
+      nameInput.className = "input";
+      nameInput.value = d.name;
+
+      nameInput.onblur = () => {
+        if(nameInput.value.trim()){
+          const old = d.name;
+          d.name = nameInput.value.trim();
+          shoppingLists[d.name] = shoppingLists[old] || [];
+          if(old !== d.name) delete shoppingLists[old];
+        }
+        d.editName = false;
+        save();
+        renderEdit(d);
+        renderMeals();
+      };
+
+      nameInput.onkeydown = e => {
+        if(e.key === "Enter") nameInput.blur();
+      };
+
+      card.appendChild(nameInput);
+
+      setTimeout(() => {
+        nameInput.focus();
+        nameInput.select();
+      }, 0);
+
+    } else {
+      const header = document.createElement("div");
+      header.className = "dish-title small";
+      header.textContent = d.name;
+      header.onclick = () => {
+        d.open = !d.open;
+        renderEdit(d);
+      };
+      card.appendChild(header);
+    }
+
+    /* ===== ZAWARTOŚĆ ===== */
+    if(d.open){
+      const content = document.createElement("div");
+
+      const parchment = document.createElement("div");
+      parchment.className = "parchment";
+
+      shoppingLists[d.name].forEach((item, idx) => {
+        const row = document.createElement("div");
+        row.className = "edit-row";
+
+        const ingInput = document.createElement("input");
+        ingInput.className = "input";
+        ingInput.value = item.name;
+        ingInput.oninput = e => { item.name = e.target.value; save(); };
+
+        const del = document.createElement("button");
+        del.className = "remove-x";
+        del.innerHTML = "&times;";
+        del.onclick = () => {
+          shoppingLists[d.name].splice(idx,1);
+          save();
+          renderEdit(d);
+        };
+
+        row.append(ingInput, del);
+        parchment.appendChild(row);
+      });
+
+      const addIng = document.createElement("button");
+      addIng.className = "btn add small";
+      addIng.textContent = "➕ Dodaj składnik";
+      addIng.onclick = () => {
+        shoppingLists[d.name].push({ name:"", checked:false });
+        save();
+        renderEdit(d);
+      };
+
+      const delDish = document.createElement("button");
+      delDish.className = "btn danger small";
+      delDish.textContent = "❌ Usuń danie";
+      delDish.onclick = () => {
+        if(confirm(`Usunąć danie "${d.name}"?`)){
+          delete shoppingLists[d.name];
+          dishes.splice(dishes.indexOf(d),1);
+          save();
+          renderEdit();
+          renderMeals();
+        }
+      };
+
+      const actions = document.createElement("div");
+      actions.className = "edit-actions";
+      actions.append(addIng, delDish);
+
+      content.append(parchment, actions);
+      card.appendChild(content);
+    }
+
+    editList.appendChild(card);
+  });
+}
+
+
+// dodanie nowego dania
+function addDish(){
+  dishes.forEach(d => d.open = false);
+
+  const newDish = { 
+    name: "Nowe danie", 
+    ingredients: [], 
+    open: true,
+    editName: true   // 👈 pozwala edytować nazwę tylko teraz
+  };
+
+  dishes.push(newDish);
+  shoppingLists[newDish.name] = [];
+  save();
+  renderEdit(newDish);
+}
+
+function save(){
+  localStorage.setItem("dishes", JSON.stringify(dishes));
+  localStorage.setItem("shoppingLists", JSON.stringify(shoppingLists));
+}
+
+renderMeals();
+</script>
+</body>
+</html>
