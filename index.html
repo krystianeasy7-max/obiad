@@ -53,24 +53,70 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
   </div>
 </div>
 
-<script>
+<script type="module">
+/* ===================== FIREBASE ===================== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAcVDEnGfzzwfMc5q13IV2ey1cK33BpRdI",
+  authDomain: "co-na-obiad-8afdb.firebaseapp.com",
+  databaseURL: "https://co-na-obiad-8afdb-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "co-na-obiad-8afdb",
+  storageBucket: "co-na-obiad-8afdb.firebasestorage.app",
+  messagingSenderId: "243890143832",
+  appId: "1:243890143832:web:a1fc2178e972d94fa5c02d",
+  measurementId: "G-KJ4KQ78ZNX"
+};
+
+const app = initializeApp(firebaseConfig);
+getAnalytics(app);
+
+const db = getDatabase(app);
+
+/* ===================== APP DATA ===================== */
 const DEFAULT_DISHES = [
   { name: "Spaghetti", ingredients: ["makaron","sos","mięso"] },
   { name: "Pierogi", ingredients: ["pierogi","cebula"] },
   { name: "Kurczak z ziemniakami", ingredients: ["kurczak","ziemniaki"] }
 ];
 
-let dishes = JSON.parse(localStorage.getItem("dishes")) || DEFAULT_DISHES;
-let shoppingLists = JSON.parse(localStorage.getItem("shoppingLists")) || {};
+let dishes = [];
+let shoppingLists = {};
 let selected = [];
 
+/* ===================== DOM ===================== */
 const mainView = document.getElementById("mainView");
 const editView = document.getElementById("editView");
 const mealsBox = document.getElementById("meals");
 const editList = document.getElementById("editList");
-
 document.getElementById("logo").onclick = toggleEdit;
 
+/* ===================== FIREBASE LOAD ===================== */
+async function loadData(){
+  const snapshot = await get(child(ref(db), "data"));
+  if(snapshot.exists()){
+    const data = snapshot.val();
+    dishes = data.dishes || DEFAULT_DISHES;
+    shoppingLists = data.shoppingLists || {};
+  } else {
+    dishes = DEFAULT_DISHES;
+    shoppingLists = {};
+    save();
+  }
+  renderMeals();
+}
+
+/* ===================== FIREBASE SAVE ===================== */
+function save(){
+  set(ref(db, "data"), {
+    dishes,
+    shoppingLists
+  });
+}
+
+/* ===================== UI LOGIC ===================== */
 function toggleEdit() {
   mainView.classList.toggle("hidden");
   editView.classList.toggle("hidden");
@@ -80,7 +126,9 @@ function toggleEdit() {
 function drawMeals() {
   selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0,2)
     .map(d => {
-      if (!shoppingLists[d.name]) shoppingLists[d.name] = d.ingredients.map(i=>({name:i,checked:false}));
+      if (!shoppingLists[d.name]) {
+        shoppingLists[d.name] = d.ingredients.map(i => ({ name:i, checked:false }));
+      }
       return { name:d.name, open:true };
     });
   save();
@@ -91,20 +139,28 @@ function renderMeals() {
   mealsBox.innerHTML = "";
   selected.forEach(dish=>{
     const wrap=document.createElement("div");
+
     const title=document.createElement("div");
     title.className="dish-title";
     title.textContent=dish.name;
     title.onclick=()=>{ dish.open=!dish.open; renderMeals(); };
+
     const parchment=document.createElement("div");
     parchment.className="parchment expand"+(dish.open?" open":"");
+
     const ul=document.createElement("ul");
-    shoppingLists[dish.name].forEach(item=>{
+    (shoppingLists[dish.name] || []).forEach(item=>{
       const li=document.createElement("li");
       li.className=item.checked?"checked":"";
       li.textContent=item.name;
-      li.onclick=()=>{ item.checked=!item.checked; save(); renderMeals(); };
+      li.onclick=()=>{
+        item.checked=!item.checked;
+        save();
+        renderMeals();
+      };
       ul.appendChild(li);
     });
+
     parchment.appendChild(ul);
     wrap.append(title,parchment);
     mealsBox.appendChild(wrap);
@@ -121,89 +177,73 @@ function renderEdit(focusDish) {
     const card = document.createElement("div");
     card.style.marginBottom = "12px";
 
-    /* ===== NAGŁÓWEK / EDYCJA NAZWY ===== */
     if(d.editName){
-      const nameInput = document.createElement("input");
-      nameInput.className = "input";
-      nameInput.value = d.name;
+      const input=document.createElement("input");
+      input.className="input";
+      input.value=d.name;
 
-      nameInput.onblur = () => {
-        if(nameInput.value.trim()){
-          const old = d.name;
-          d.name = nameInput.value.trim();
-          shoppingLists[d.name] = shoppingLists[old] || [];
-          if(old !== d.name) delete shoppingLists[old];
+      input.onblur=()=>{
+        if(input.value.trim()){
+          const old=d.name;
+          d.name=input.value.trim();
+          shoppingLists[d.name]=shoppingLists[old]||[];
+          delete shoppingLists[old];
         }
-        d.editName = false;
+        d.editName=false;
         save();
         renderEdit(d);
         renderMeals();
       };
 
-      nameInput.onkeydown = e => {
-        if(e.key === "Enter") nameInput.blur();
-      };
-
-      card.appendChild(nameInput);
-
-      setTimeout(() => {
-        nameInput.focus();
-        nameInput.select();
-      }, 0);
-
+      card.appendChild(input);
+      setTimeout(()=>input.focus(),0);
     } else {
-      const header = document.createElement("div");
-      header.className = "dish-title small";
-      header.textContent = d.name;
-      header.onclick = () => {
-        d.open = !d.open;
-        renderEdit(d);
-      };
+      const header=document.createElement("div");
+      header.className="dish-title small";
+      header.textContent=d.name;
+      header.onclick=()=>{ d.open=!d.open; renderEdit(d); };
       card.appendChild(header);
     }
 
-    /* ===== ZAWARTOŚĆ ===== */
     if(d.open){
-      const content = document.createElement("div");
+      const parchment=document.createElement("div");
+      parchment.className="parchment";
 
-      const parchment = document.createElement("div");
-      parchment.className = "parchment";
+      shoppingLists[d.name].forEach((item,idx)=>{
+        const row=document.createElement("div");
+        row.className="edit-row";
 
-      shoppingLists[d.name].forEach((item, idx) => {
-        const row = document.createElement("div");
-        row.className = "edit-row";
+        const inp=document.createElement("input");
+        inp.className="input";
+        inp.value=item.name;
+        inp.oninput=e=>{ item.name=e.target.value; save(); };
 
-        const ingInput = document.createElement("input");
-        ingInput.className = "input";
-        ingInput.value = item.name;
-        ingInput.oninput = e => { item.name = e.target.value; save(); };
-
-        const del = document.createElement("button");
-        del.className = "remove-x";
-        del.innerHTML = "&times;";
-        del.onclick = () => {
+        const del=document.createElement("button");
+        del.className="remove-x";
+        del.innerHTML="&times;";
+        del.onclick=()=>{
           shoppingLists[d.name].splice(idx,1);
           save();
           renderEdit(d);
         };
 
-        row.append(ingInput, del);
+        row.append(inp,del);
         parchment.appendChild(row);
       });
 
-      const addIng = document.createElement("button");
-      addIng.className = "btn add small";
-      addIng.textContent = "➕ Dodaj składnik";
-      addIng.onclick = () => {
-        shoppingLists[d.name].push({ name:"", checked:false });
+      const add=document.createElement("button");
+      add.className="btn add small";
+      add.textContent="➕ Dodaj składnik";
+      add.onclick=()=>{
+        shoppingLists[d.name].push({name:"",checked:false});
         save();
         renderEdit(d);
       };
 
-      const delDish = document.createElement("button");
-      delDish.className = "btn danger small";
-      delDish.textContent = "❌ Usuń danie";
-      delDish.onclick = () => {
+      const delDish=document.createElement("button");
+      delDish.className="btn danger small";
+      delDish.textContent="❌ Usuń danie";
+      delDish.onclick=()=>{
         if(confirm(`Usunąć danie "${d.name}"?`)){
           delete shoppingLists[d.name];
           dishes.splice(dishes.indexOf(d),1);
@@ -213,42 +253,33 @@ function renderEdit(focusDish) {
         }
       };
 
-      const actions = document.createElement("div");
-      actions.className = "edit-actions";
-      actions.append(addIng, delDish);
+      const actions=document.createElement("div");
+      actions.className="edit-actions";
+      actions.append(add,delDish);
 
-      content.append(parchment, actions);
-      card.appendChild(content);
+      card.append(parchment,actions);
     }
 
     editList.appendChild(card);
   });
 }
 
-
-// dodanie nowego dania
 function addDish(){
-  dishes.forEach(d => d.open = false);
-
-  const newDish = { 
-    name: "Nowe danie", 
-    ingredients: [], 
-    open: true,
-    editName: true   // 👈 pozwala edytować nazwę tylko teraz
-  };
-
-  dishes.push(newDish);
-  shoppingLists[newDish.name] = [];
+  dishes.forEach(d=>d.open=false);
+  const d={name:"Nowe danie",ingredients:[],open:true,editName:true};
+  dishes.push(d);
+  shoppingLists[d.name]=[];
   save();
-  renderEdit(newDish);
+  renderEdit(d);
 }
 
-function save(){
-  localStorage.setItem("dishes", JSON.stringify(dishes));
-  localStorage.setItem("shoppingLists", JSON.stringify(shoppingLists));
-}
-
-renderMeals();
+/* ===================== START ===================== */
+loadData();
+// 👇 UDOSTĘPNIJ FUNKCJE DLA HTML
+window.drawMeals = drawMeals;
+window.addDish = addDish;
+window.toggleEdit = toggleEdit;
 </script>
+
 </body>
 </html>
