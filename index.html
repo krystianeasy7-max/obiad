@@ -37,16 +37,39 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
 .edit-row { display:flex; gap:6px; margin-bottom:6px; }
 .remove-x { background:transparent; border:none; font-size:18px; cursor:pointer; color:#92400e; }
 .edit-actions { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  .menu-count {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(to bottom, #22c55e, #15803d);
+  border: 4px solid #bbf7d0;
+  color: #ecfdf5;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 0 #14532d;
+  font-size: 16px;
+}
+
+.panel {
+  position: relative;
+}
+
 </style>
 </head>
 <body>
 <div class="app">
   <img src="logo.png" class="logo" id="logo">
   <div class="panel" id="mainView">
-    <button class="btn" onclick="drawMeals()">🎲 WYLOSUJ 2 DANIA</button>
+    <button class="btn" onclick="drawMeals()">🎲 WYLOSUJ 3 DANIA</button>
     <div class="meals" id="meals"></div>
   </div>
   <div class="panel hidden" id="editView">
+     <div class="menu-count" id="menuCount">0</div>
     <div id="editList"></div>
     <button class="btn add" onclick="addDish()">➕ Dodaj danie</button>
     <button class="btn secondary" onclick="toggleEdit()">⬅ Wróć</button>
@@ -92,6 +115,7 @@ const editView = document.getElementById("editView");
 const mealsBox = document.getElementById("meals");
 const editList = document.getElementById("editList");
 document.getElementById("logo").onclick = toggleEdit;
+  const menuCount = document.getElementById("menuCount");
 
 /* ===================== FIREBASE LOAD ===================== */
 async function loadData(){
@@ -124,7 +148,7 @@ function toggleEdit() {
 }
 
 function drawMeals() {
-  selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0,2)
+  selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0,3)
     .map(d => {
       if (!shoppingLists[d.name]) {
         shoppingLists[d.name] = d.ingredients.map(i => ({ name:i, checked:false }));
@@ -262,6 +286,7 @@ function renderEdit(focusDish) {
 
     editList.appendChild(card);
   });
+  menuCount.textContent = dishes.length;
 }
 
 function addDish(){
@@ -283,3 +308,4 @@ window.toggleEdit = toggleEdit;
 
 </body>
 </html>
+
