@@ -81,7 +81,12 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  setPersistence, 
+  browserLocalPersistence 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyAcVDEnGfzzwfMc5q13IV2ey1cK33BpRdI",
   authDomain: "co-na-obiad-8afdb.firebaseapp.com",
@@ -96,7 +101,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 getAnalytics(app);
 
+const auth = getAuth(app);
 const db = getDatabase(app);
+
+// trwała sesja
+await setPersistence(auth, browserLocalPersistence);
+
+// automatyczne logowanie
+await signInWithEmailAndPassword(auth, "skierskikrystian@gmail.com", "Klaudusia");
 
 /* ===================== APP DATA ===================== */
 const DEFAULT_DISHES = [
@@ -308,4 +320,5 @@ window.toggleEdit = toggleEdit;
 
 </body>
 </html>
+
 
