@@ -17,7 +17,7 @@ body { margin:0; min-height:100dvh; display:flex; justify-content:center; paddin
 body::before { content:""; position:fixed; inset:0; background:url("tło.png") center/cover no-repeat; z-index:-1;}
 .app { width:100%; max-width:480px; }
 .logo { display:block; width:260px; max-width:90%; margin:0 auto 16px; cursor:pointer; }
-.panel { padding:24px; border-radius:28px; background:linear-gradient(to bottom,#991b1b,#7f1d1d); border:4px solid #f59e0b; box-shadow:0 15px 40px rgba(0,0,0,.6); }
+.panel { padding:24px; border-radius:28px; background:linear-gradient(to bottom,#991b1b,#7f1d1d); border:4px solid #f59e0b; box-shadow:0 15px 40px rgba(0,0,0,.6); position:relative; }
 .hidden { display:none; }
 .btn { width:100%; padding:16px; border-radius:18px; border:4px solid #fde047; background:linear-gradient(to bottom,#fb923c,#ea580c); color:#fde047; font-size:18px; font-weight:800; cursor:pointer; box-shadow:0 6px 0 #b45309; margin-bottom:16px; }
 .btn.secondary { background:#7f1d1d; border:2px solid #f59e0b; box-shadow:none; font-size:16px; }
@@ -37,7 +37,8 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
 .edit-row { display:flex; gap:6px; margin-bottom:6px; }
 .remove-x { background:transparent; border:none; font-size:18px; cursor:pointer; color:#92400e; }
 .edit-actions { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
-  .menu-count {
+
+.menu-count {
   position: absolute;
   top: -12px;
   right: -12px;
@@ -54,11 +55,6 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
   box-shadow: 0 6px 0 #14532d;
   font-size: 16px;
 }
-
-.panel {
-  position: relative;
-}
-
 </style>
 </head>
 <body>
@@ -68,8 +64,9 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
     <button class="btn" onclick="drawMeals()">🎲 WYLOSUJ 3 DANIA</button>
     <div class="meals" id="meals"></div>
   </div>
+
   <div class="panel hidden" id="editView">
-     <div class="menu-count" id="menuCount">0</div>
+    <div class="menu-count" id="menuCount">0</div>
     <div id="editList"></div>
     <button class="btn add" onclick="addDish()">➕ Dodaj danie</button>
     <button class="btn secondary" onclick="toggleEdit()">⬅ Wróć</button>
@@ -77,16 +74,10 @@ body::before { content:""; position:fixed; inset:0; background:url("tło.png") c
 </div>
 
 <script type="module">
-/* ===================== FIREBASE ===================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
 import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  setPersistence, 
-  browserLocalPersistence 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAcVDEnGfzzwfMc5q13IV2ey1cK33BpRdI",
   authDomain: "co-na-obiad-8afdb.firebaseapp.com",
@@ -100,15 +91,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 getAnalytics(app);
-
-const auth = getAuth(app);
 const db = getDatabase(app);
-
-// trwała sesja
-await setPersistence(auth, browserLocalPersistence);
-
-// automatyczne logowanie
-await signInWithEmailAndPassword(auth, "skierskikrystian@gmail.com", "Klaudusia");
 
 /* ===================== APP DATA ===================== */
 const DEFAULT_DISHES = [
@@ -126,8 +109,8 @@ const mainView = document.getElementById("mainView");
 const editView = document.getElementById("editView");
 const mealsBox = document.getElementById("meals");
 const editList = document.getElementById("editList");
+const menuCount = document.getElementById("menuCount");
 document.getElementById("logo").onclick = toggleEdit;
-  const menuCount = document.getElementById("menuCount");
 
 /* ===================== FIREBASE LOAD ===================== */
 async function loadData(){
@@ -142,14 +125,12 @@ async function loadData(){
     save();
   }
   renderMeals();
+  renderEdit();
 }
 
 /* ===================== FIREBASE SAVE ===================== */
 function save(){
-  set(ref(db, "data"), {
-    dishes,
-    shoppingLists
-  });
+  set(ref(db, "data"), { dishes, shoppingLists });
 }
 
 /* ===================== UI LOGIC ===================== */
@@ -160,7 +141,7 @@ function toggleEdit() {
 }
 
 function drawMeals() {
-  selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0,3)
+  selected = [...dishes].sort(() => 0.5 - Math.random()).slice(0, Math.min(3, dishes.length))
     .map(d => {
       if (!shoppingLists[d.name]) {
         shoppingLists[d.name] = d.ingredients.map(i => ({ name:i, checked:false }));
@@ -298,6 +279,8 @@ function renderEdit(focusDish) {
 
     editList.appendChild(card);
   });
+
+  // aktualizacja badge w menu edycji
   menuCount.textContent = dishes.length;
 }
 
@@ -312,13 +295,9 @@ function addDish(){
 
 /* ===================== START ===================== */
 loadData();
-// 👇 UDOSTĘPNIJ FUNKCJE DLA HTML
 window.drawMeals = drawMeals;
 window.addDish = addDish;
 window.toggleEdit = toggleEdit;
 </script>
-
 </body>
 </html>
-
-
