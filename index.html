@@ -1,8 +1,8 @@
 diff --git a/index.html b/index.html
-index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..54f436ed22828f0216f5be8012215f65c144aac6 100644
+index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..414078521111eaf61af9758db8a7c30fe18a8f17 100644
 --- a/index.html
 +++ b/index.html
-@@ -1,125 +1,345 @@
+@@ -1,125 +1,323 @@
 -diff --git a/index.html b/index.html
 -index a6167ae2fe2007fc190a86acfd620477a644dd69..a7cc7510d2216d1ae429fdf8fa94146919ac23d3 100644
 ---- a/index.html
@@ -238,7 +238,6 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..54f436ed22828f0216f5be8012215f65
 +let dishes = [];
 +let shoppingLists = {};
 +let selected = [];
-+const LOCAL_STORAGE_KEY = "co-na-obiad-data";
 +
 +/* ===================== DOM ===================== */
 +const mainView = document.getElementById("mainView");
@@ -248,56 +247,35 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..54f436ed22828f0216f5be8012215f65
 +document.getElementById("logo").onclick = toggleEdit;
 +  const menuCount = document.getElementById("menuCount");
 +
-+/* ===================== STORAGE HELPERS ===================== */
-+function applyData(data = {}) {
-+  dishes = Array.isArray(data.dishes) && data.dishes.length ? data.dishes : [...DEFAULT_DISHES];
-+  shoppingLists = data.shoppingLists && typeof data.shoppingLists === "object" ? data.shoppingLists : {};
-+}
-+
-+function readLocalData(){
-+  try {
-+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-+    return raw ? JSON.parse(raw) : null;
-+  } catch {
-+    return null;
-+  }
-+}
-+
-+function writeLocalData(){
-+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ dishes, shoppingLists }));
-+}
-+
 +/* ===================== FIREBASE LOAD ===================== */
 +async function loadData(){
-+  const localData = readLocalData();
-+  if(localData){
-+    applyData(localData);
-+    renderMeals();
-+    renderEdit();
++  const localRaw = localStorage.getItem("data");
++  if(localRaw){
++    try {
++      const localData = JSON.parse(localRaw);
++      dishes = localData.dishes || DEFAULT_DISHES;
++      shoppingLists = localData.shoppingLists || {};
++      renderMeals();
++    } catch {}
 +  }
 +
-+  try {
-+    const snapshot = await get(child(ref(db), "data"));
-+    if(snapshot.exists()){
-+      applyData(snapshot.val());
-+      writeLocalData();
-+    } else {
-+      applyData();
-+      save();
-+    }
-+  } catch {
-+    if(!localData){
-+      applyData();
-+    }
++  const snapshot = await get(child(ref(db), "data"));
++  if(snapshot.exists()){
++    const data = snapshot.val();
++    dishes = data.dishes || DEFAULT_DISHES;
++    shoppingLists = data.shoppingLists || {};
++    localStorage.setItem("data", JSON.stringify({ dishes, shoppingLists }));
++  } else {
++    dishes = DEFAULT_DISHES;
++    shoppingLists = {};
++    save();
 +  }
-+
 +  renderMeals();
-+  renderEdit();
 +}
 +
 +/* ===================== FIREBASE SAVE ===================== */
 +function save(){
-+  writeLocalData();
++  localStorage.setItem("data", JSON.stringify({ dishes, shoppingLists }));
 +  set(ref(db, "data"), {
 +    dishes,
 +    shoppingLists
