@@ -1,8 +1,8 @@
 diff --git a/index.html b/index.html
-index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..a8d6d58104e960b2ffffdccc99bbff8e7e9a1acd 100644
+index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..54f436ed22828f0216f5be8012215f65c144aac6 100644
 --- a/index.html
 +++ b/index.html
-@@ -1,125 +1,344 @@
+@@ -1,125 +1,345 @@
 -diff --git a/index.html b/index.html
 -index a6167ae2fe2007fc190a86acfd620477a644dd69..a7cc7510d2216d1ae429fdf8fa94146919ac23d3 100644
 ---- a/index.html
@@ -210,7 +210,7 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..a8d6d58104e960b2ffffdccc99bbff8e
 +/* ===================== FIREBASE ===================== */
 +import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 +import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
-+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
++import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 +
 +const firebaseConfig = {
 +  apiKey: "AIzaSyAcVDEnGfzzwfMc5q13IV2ey1cK33BpRdI",
@@ -238,7 +238,6 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..a8d6d58104e960b2ffffdccc99bbff8e
 +let dishes = [];
 +let shoppingLists = {};
 +let selected = [];
-+
 +const LOCAL_STORAGE_KEY = "co-na-obiad-data";
 +
 +/* ===================== DOM ===================== */
@@ -249,17 +248,16 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..a8d6d58104e960b2ffffdccc99bbff8e
 +document.getElementById("logo").onclick = toggleEdit;
 +  const menuCount = document.getElementById("menuCount");
 +
-+/* ===================== FIREBASE LOAD ===================== */
-+function normalizeData(data = {}) {
-+  dishes = Array.isArray(data.dishes) && data.dishes.length ? data.dishes : DEFAULT_DISHES;
++/* ===================== STORAGE HELPERS ===================== */
++function applyData(data = {}) {
++  dishes = Array.isArray(data.dishes) && data.dishes.length ? data.dishes : [...DEFAULT_DISHES];
 +  shoppingLists = data.shoppingLists && typeof data.shoppingLists === "object" ? data.shoppingLists : {};
 +}
 +
 +function readLocalData(){
 +  try {
 +    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-+    if(!raw) return null;
-+    return JSON.parse(raw);
++    return raw ? JSON.parse(raw) : null;
 +  } catch {
 +    return null;
 +  }
@@ -269,29 +267,32 @@ index cc3982d4b2b7bae68f20e646c5cb21713e3f3c79..a8d6d58104e960b2ffffdccc99bbff8e
 +  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ dishes, shoppingLists }));
 +}
 +
-+function loadData(){
++/* ===================== FIREBASE LOAD ===================== */
++async function loadData(){
 +  const localData = readLocalData();
 +  if(localData){
-+    normalizeData(localData);
-+  } else {
-+    normalizeData();
-+  }
-+  renderMeals();
-+  renderEdit();
-+
-+  const dataRef = ref(db, "data");
-+  onValue(dataRef, (snapshot) => {
-+    if(snapshot.exists()){
-+      normalizeData(snapshot.val());
-+      writeLocalData();
-+    } else {
-+      normalizeData();
-+      save();
-+    }
-+
++    applyData(localData);
 +    renderMeals();
 +    renderEdit();
-+  });
++  }
++
++  try {
++    const snapshot = await get(child(ref(db), "data"));
++    if(snapshot.exists()){
++      applyData(snapshot.val());
++      writeLocalData();
++    } else {
++      applyData();
++      save();
++    }
++  } catch {
++    if(!localData){
++      applyData();
++    }
++  }
++
++  renderMeals();
++  renderEdit();
 +}
 +
 +/* ===================== FIREBASE SAVE ===================== */
